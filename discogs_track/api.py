@@ -3,11 +3,17 @@ from requests import Session
 from requests_oauthlib import OAuth1
 from ujson import loads
 
+from . import __version__
+
 from time import sleep
 from pdb import set_trace
 import configparser
 import os
 from typing import List
+
+from logging import getLogger, DEBUG, ERROR, INFO
+
+logger = getLogger('discogs_track')
 
 
 class API(object):
@@ -15,7 +21,6 @@ class API(object):
     A very light asynchronous wrapper around the Discogs Databse API
     https://www.discogs.com/developers#page:home
     """
-    my_version = 1.0
     base_url = 'https://api.discogs.com'
     max_per_minute = 59
     redis_db = 0
@@ -35,7 +40,7 @@ class API(object):
             access_secret_here = ...
         """
         self.currency = currency
-        self._cache = redis.Redis(host='localhost', port=6379, db=API.redis_db)
+        self.cache = redis.Redis(host='localhost', port=6379, db=API.redis_db)
         self.cached = cached
 
         config = configparser.ConfigParser()
@@ -45,7 +50,7 @@ class API(object):
                            config.get('Discogs', 'access_token_here'),
                            config.get('Discogs', 'access_secret_here'))
         self.user_name = config.get('Discogs', 'user_name')
-        self.user_agent = f'missing_songs/{API.my_version}'
+        self.user_agent = f'discogs_track/{__version__}'
         self.session = Session()
         self.session.auth = self.auth
         self.session.headers.update({'User-Agent': self.user_agent})
@@ -123,17 +128,17 @@ class API(object):
 
     def _get(self, query: str, from_cache: bool=True) -> dict:
         url = f'{API.base_url}{query}'
-        if self.cached and url in self._cache and from_cache:
-            print(f'{url} (from cache)')
-            return loads(self._cache[url].decode())
+        if self.cached and url in self.cache and from_cache:
+            logger.debug(f'{url} (from cache)')
+            return loads(self.cache[url].decode())
         for _ in range(3):
             resp = self.session.get(url)
             text = resp.text
             rate_limit_remaining = int(resp.headers["X-Discogs-Ratelimit-Remaining"])
-            print(f'{url} (remaining rate limit: {rate_limit_remaining}/minute)')
-            self._cache[url] = text
+            logger.debug(f'{url} (remaining rate limit: {rate_limit_remaining}/minute)')
+            self.cache[url] = text
             if rate_limit_remaining < 2:
-                print('Wait 60s')
+                logger.warning('Wait 60s')
                 sleep(60)
             elif rate_limit_remaining < 6:
                 sleep(5)

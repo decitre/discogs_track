@@ -4,3 +4,4 @@ redis
 ujson
 tabulate
 click
+tqdm

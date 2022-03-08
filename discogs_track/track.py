@@ -37,9 +37,11 @@ class Track:
     def __init__(self, artist: "Artist", record: "Record", track_dict: dict):
         self.raw = track_dict
         self.artist = artist
-        self.title = track_dict["title"]
+        self.title = track_dict["title"].strip()
         self.records = {record.id: record}
         self.duration = track_dict["duration"].strip().lstrip("0")
+        if self.duration.startswith(':'):
+            self.duration = f"0{self.duration}"
         self.in_collection = record.in_collection
         self.alternatives = set()
         self._register()
