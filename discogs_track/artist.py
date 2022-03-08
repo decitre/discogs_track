@@ -8,39 +8,22 @@ from dataclasses import dataclass
 @dataclass
 class Artist:
     """
-    A dict hosting the values returned by the API get_artist(artist_id) method.
-    For example:
-        {'id': 27963,
-         'name': 'Frank Tovey', 'namevariations': ['F Tovey', 'F. Tovey', 'Tovey'], 'realname': 'Francis John Tovey',
-         'aliases': [{'id': 2705, 'name': 'Fad Gadget', 'resource_url': 'https://api.discogs.com/artists/2705',
-                      'thumbnail_url': 'https://img.discogs.com/...jpg'}],
-         'data_quality': 'Needs Vote',
-         'groups': [{'active': True, 'id': 2706, 'name': 'Mkultra',
-                     'resource_url': 'https://api.discogs.com/artists/2706', 'thumbnail_url': ''},
-                    {'active': True, 'id': 101467, 'name': 'Frank Tovey & The Pyros',
-                     'resource_url': 'https://api.discogs.com/artists/101467', 'thumbnail_url': 'https://img.discogs.com/...jpg'}],
-         'images': [...],
-         'profile': '...',
-         'releases_url': 'https://api.discogs.com/artists/27963/releases', 'resource_url': 'https://api.discogs.com/artists/27963',
-         'uri': 'https://www.discogs.com/artist/27963-Frank-Tovey',
-         'urls': ['http://www.franktovey.de/', 'https://en.wikipedia.org/wiki/Fad_Gadget']
-         }
+    Hosts the values returned by the API get_artist(artist_id) method.
 
-    The dict is enhanced with:
-    - "_aliases": the list of Artist object of each id. Artists with no aliases have self as unique _aliases value.
-    - "_records": the dict of the artist Record objects indexed by their release id
-    - "_missing_tracks": The dict of the user's collection missing artist tracks, indexed by track title
+    Primary members:
+    - aliases: the list of Artist object of each id. Artists with no aliases have self as unique _aliases value.
+    - records: the dict of the artist Record objects indexed by their release id
+    - missing_tracks: The dict of the user's collection missing artist tracks, indexed by track title
 
     For example:
-
-      '_aliases': [Artist(Fad Gadget)]
-      '_records': {28107: Record(Frank Tovey, Some Bizzare Album, LP, Compilation, Album, 1981, 0.0, https://www.discogs.com/Various-Some-Bizzare-Album/release/28107 )
-                    ...}
-      '_missing_tracks':  {"Collapsing New People":
+      aliases: [Artist(Fad Gadget)]
+      records: {28107: Record(Frank Tovey, Some Bizzare Album, LP, Compilation, Album, 1981, 0.0, https://www.discogs.com/Various-Some-Bizzare-Album/release/28107 )
+                ...}
+      missing_tracks:  {"Collapsing New People":
                             {'3:33': Track(Collapsing New People, 3:33),
                              '3:50': Track(Collapsing New People, 3:50), ... }
 
-    The class is mostly useful for its get_missing_tracks() and get_records_with_missing_tracks() methods
+    The class is mostly useful for its discover_missing_tracks() and check_for_completing_records() methods
     """
     raw: dict
     id: int
@@ -134,12 +117,6 @@ class Artist:
         """Sets self.completing_records and calculates for each artist record, its missing tracks ratio"""
         self.completing_records = {}
         for id_, record in self.records.items():
-            #if id_ in (3079185, 2976585):
-            #    import pdb; pdb.set_trace()
-            #    pass # 2976585 should be in collection, 3079185 not
-            #if id_ == 8665018:
-            #    import pdb; pdb.set_trace()
-            #    pass
             if isinstance(record, Record):
                 record.set_missing_tracks_ratio(self.full_id)
                 self.completing_records.setdefault(len(record.missing_tracks), {})[id_] = record
@@ -158,20 +135,23 @@ class Artist:
 
                 if release["type"] == "master":
                     master_versions_pages = api.get_master_releases(master_id=release["id"], from_cache=from_cache)
-                    if len(master_versions_pages) > 1:
-                        import pdb; pdb.set_trace()
-                        pass # check for master_versions_pages and decide if we extract the method for readability
                     for page in master_versions_pages:
                         for version in page["versions"]:
-                            record = Record(record_id=version["id"], artist=artist, with_artists=self.artists, version_raw_data=version, api=api, from_cache=from_cache)
+                            record = Record(record_id=version["id"],
+                                            artist=artist,
+                                            with_artists=self.artists,
+                                            version_raw_data=version,
+                                            api=api,
+                                            from_cache=from_cache)
                             if not record.is_digital:
                                 records[record.id] = record
                 else:
                     assert(release["type"] == "release")
-                    #if release["id"] in (3079185, 2976585):
-                    #    import pdb; pdb.set_trace()
-                    #    pass # 2976585 should be in collection, 3079185 not
-                    record = Record(record_id=release["id"], artist=artist, with_artists=self.artists, api=api, from_cache=from_cache)
+                    record = Record(record_id=release["id"],
+                                    artist=artist,
+                                    with_artists=self.artists,
+                                    api=api,
+                                    from_cache=from_cache)
                     if not record.is_digital:
                         records[record.id] = record
         return records
@@ -192,14 +172,6 @@ class Artist:
                         if track not in record.missing_tracks:
                             record.missing_tracks.append(track)
         return _missing
-
-    def get_completing_records(self):
-        """
-        Returns a nested dict of records containing tracks missed in the user's collection.
-        The dict is indexed by number of missing tracks in the collection, then the record relaese id.
-        :return:
-        """
-        return self.completing_records
 
     def tracks_report(self):
         """
@@ -231,9 +203,15 @@ class Artist:
         return tracks_table
 
     def completing_records_report(self, min_tracks_number: int=0, for_sale: bool=False):
+        """
+        Returns a table of records containing tracks missing in the collection
+        :param min_tracks_number: minimum number of missing tracks (default: 0)
+        :param for_sale: To only get Records for sale, set this flag to True
+        :return: An array of arrays. The first line is the header (nb, record)
+        """
         records_table = [['nb', 'record']]
         for missing_nb in sorted(self.completing_records):
-            if missing_nb <=0:
+            if missing_nb<=min_tracks_number:
                 continue
             with_this_nb = self.completing_records[missing_nb]
             for release_id, record in with_this_nb.items():
@@ -254,4 +232,3 @@ class Various:
 
 
 various = Various()
-

@@ -121,8 +121,6 @@ class API(object):
                 break
         return pages
 
-
-    #
     def _get(self, query: str, from_cache: bool=True) -> dict:
         url = f'{API.base_url}{query}'
         if self.cached and url in self._cache and from_cache:

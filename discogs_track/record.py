@@ -1,128 +1,24 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, List
-
-if TYPE_CHECKING:
-    from .artist import Artist
+from typing import Dict
 
 from .api import API
 from .track import Track
 
 from dataclasses import dataclass
 
-@dataclass
-class Version:
-    """
-    A Discogs recording version contains the fields:
-    catno, country, format, id, label, major_formats, released , resource_url, stats, status, thumb, title
-    We are only interested in: id, title, stats.community.user
-    """
-    raw: dict
-    id: int
-    title: str
-    in_collection: bool
-    in_wantlist: bool
-
-    @classmethod
-    def from_version_dict(cls, version_dict: dict):
-        in_collection, in_wantlist = False, False
-        if "community" in version_dict["stats"] and "user" in version_dict["stats"]["community"]:
-            in_collection = version_dict["stats"]["community"]["user"].get("in_collection", False)
-            in_wantlist = version_dict["stats"]["community"]["user"].get("in_wantlist", False)
-        return Version(raw=version_dict, id=version_dict["id"], title=version_dict["title"],
-                       in_collection=in_collection, in_wantlist=in_wantlist)
-
-@dataclass
-class DetailedRelease:
-    """
-    A discogs recording release contains the fields:
-    artists, artists_sort, community, companies, country, data_quality, date_added, date_changed, estimated_weight,
-    extraartists, format_quantity, formats, genres, id, identifiers, images, labels, lowest_price, master_id,
-    master_url, num_for_sale, released, released_formatted, resource_url, series, status, styles, thumb, title,
-    tracklist, uri, videos, year
-
-    We are only interested in:
-    artists[]|(id, name), extraartists[]|(id, name, role), formats, genres, id, master_id, num_for_sale, styles, title,
-    tracklist[]|(duration, position, title, type_), uri, year
-    """
-    raw: dict
-    id: int
-    master_id: int
-    title: str
-    extra_artists: List[Dict[str, str]]
-    formats: List[dict]
-    genres: List[str]
-    styles: List[str]
 
 @dataclass
 class Record:
     """
-    A dict hosting the values returned by the API get_release(artist_id) method.
-    Example:
-        {
-         'artist': "Ak'chamel, The Giver Of Illness",
-         'id': 4548889,
-         'artists': [{'anv': '', 'id': 3281311, 'join': '', 'name': "Ak'chamel, The Giver Of Illness",
-                      'resource_url': 'https://api.discogs.com/artists/3281311', 'role': '',
-                      'thumbnail_url': 'https://i.discogs.com/...jpeg', 'tracks': ''}],
-         'artists_sort': "Ak'chamel, The Giver Of Illness",
-         'blocked_from_sale': False,
-         'community': {...}, 'companies': [], 'country': 'US', 'data_quality': 'Needs Vote',
-         'date_added': '2013-05-08T14:16:53-07:00', 'date_changed': '2015-07-19T19:14:36-07:00',
-         'extraartists': [],
-         'format': '8xFile, MP3, Album, 320', 'format_quantity': 0,
-         'formats': [{'descriptions': ['MP3', 'Album'], 'name': 'File', 'qty': '8', 'text': '320 kbps'}],
-         'genres': ['Electronic', 'Folk, World, & Country'],
-         'identifiers': [],
-         'images': [...],
-         'label': 'DNA Collective',
-         'labels': [{'catno': 'none', 'entity_type': '1', 'entity_type_name': 'Label', 'id': 790847, 'name': 'DNA Collective',
-                     'resource_url': 'https://api.discogs.com/labels/790847',
-                     'thumbnail_url': 'https://i.discogs.com/...jpeg'}],
-         'lowest_price': None,
-         'num_for_sale': 0,
-         'released': '2013',
-         'released_formatted': '2013',
-         'resource_url': 'https://api.discogs.com/releases/4548889',
-         'role': 'Main', 'series': [],
-         'stats': {'community': {'in_collection': 2, 'in_wantlist': 6}, 'user': {'in_collection': 0, 'in_wantlist': 0}},
-         'status': 'Accepted',
-         'styles': ['Mouth Music', 'Noise'],
-         'thumb': 'https://i.discogs.com/...jpeg',
-         'title': 'The Divine Vine Tapes',
-         'tracklist': [{'duration': '3:28', 'position': '1', 'title': 'The Purge', 'type_': 'track'}, ...],
-         'type': 'release',
-         'uri': 'https://www.discogs.com/release/4548889-AkchamelGiver-Of-Illness-The-Divine-Vine-Tapes',
-         'year': 2013}
+    Hosts the values returned by the API get_release(artist_id) method.
 
-    Especially:
-    - "id": Discogs release id
-    - "artist": The release artist name string
-    - "title": release title
-    - "format": format string of the release
-    - "formats": structured format dict list
-    - "uri": Discogs URL of the release
-    - "tracklist": List of tracks dict
-    - "year", "released": the release year string
-    - "artists": list of Discogs artist ids contributing to the release
-
-    The dict is enhanced with:
-    - "_artist": The release related Artist object
-    - "_format": A formatted format string :)
-    - "_in_collection": set to True when the release is in the user collection
-    - "_missing_tracks": List of Track objects from that release not in the user collection
-    - "_missing_tracks_ratio": Number of the release missing tracks over the total number of release tracks
-    - "_track_artist_ids": List of Discogs ids of all tracks contributing artists
-    - "_tracks": dict of Track objects lists for a specific artist in the record (valued through calls of set_tracks())
-
-    Above example:
-        '_artist': Artist(Ak'chamel, The Giver Of Illness)
-        '_format': '8xFile, MP3, Album, 320'
-        '_in_collection': False
-        '_missing_tracks': []
-        '_missing_tracks_ratio': 0.0
-        '_track_artist_ids': {3281311}
-        '_tracks': {}
-        '_year': 2013
+    Primary members:
+    - artists: The release related Artist objects indexed by artist id
+    - format: A formatted format string :)
+    - in_collection: set to True when the release is in the user collection
+    - missing_tracks: List of Track objects from that release not in the user collection
+    - missing_tracks_ratio: Number of the release missing tracks over the total number of release tracks
+    - track_artist_ids: List of Discogs ids of all tracks contributing artists
+    - tracks: dict of Track objects lists for a specific artist in the record
     """
     raw: dict
     version_raw: dict
@@ -143,8 +39,8 @@ class Record:
 
     def __init__(self,
                  record_id: int,
-                 artist: Artist=None,
-                 with_artists: Dict[int, Artist] = None,
+                 artist: "Artist"=None,
+                 with_artists: Dict[int, "Artist"] = None,
                  from_cache: bool = True,
                  api: API = None,
                  version_raw_data: dict=None):

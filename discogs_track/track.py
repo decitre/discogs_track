@@ -1,10 +1,4 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
 from dataclasses import dataclass
-
-if TYPE_CHECKING:
-    from .artist import Artist
-    from .record import Record
 
 
 @dataclass
@@ -13,7 +7,7 @@ class Track:
 
     """
     raw: dict
-    artist: Artist
+    artist: "Artist"
     title: str
     duration: str
     records: dict
@@ -23,7 +17,7 @@ class Track:
     _tracks = {}  # Indexed by artist_ids csv, then title, then duration
 
     @staticmethod
-    def get_or_create(track_dict: dict, record: Record, artist: Artist = None):
+    def get_or_create(track_dict: dict, record: "Record", artist: "Artist" = None):
         title = track_dict["title"]
         duration = track_dict["duration"]
         if record.artist_full_id in Track._tracks and \
@@ -36,11 +30,11 @@ class Track:
         return track
 
     @staticmethod
-    def get_all(artist: Artist):
+    def get_all(artist: "Artist"):
         """Returns the list of Track objects for the specified Artist"""
         return Track._tracks.get(artist.full_id)
 
-    def __init__(self, artist: Artist, record: Record, track_dict: dict):
+    def __init__(self, artist: "Artist", record: "Record", track_dict: dict):
         self.raw = track_dict
         self.artist = artist
         self.title = track_dict["title"]
@@ -50,7 +44,7 @@ class Track:
         self.alternatives = set()
         self._register()
 
-    def add_record(self, record: Record):
+    def add_record(self, record: "Record"):
         self.records[record.id] = record
         if record.in_collection is not None:
             if self.in_collection is None:

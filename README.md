@@ -1,7 +1,7 @@
 # missing track
 
 A tool for completists and other pop music collectors.
-It is inspired from R.I.P the discogs.com [Track project](https://www.discogs.com/track). 
+It is inspired by R.I.P the discogs.com [Track project](https://www.discogs.com/track). 
 
 ## missing tracks ratio
 
@@ -24,13 +24,13 @@ To start Redis service on Macos:
 
 | class | comment |
 |:-------|:-------|
-| `silly_collector.api.API` | A very light asynchronous wrapper around the [Discogs API](https://www.discogs.com/developers/). <p>Uses a local redis instance if <code>cached=True</code> is passed to its constructor.  |
-| `silly_collector.aritist.Artist` | <p>A dict class derived from the Json returned by `/artists/{artist_id}`.</p><p>hosts the `get_missing_tracks()` and `get_completing_records()` methods</p> |
-| `silly_collector.record.Record` | |
+| `api.API` | A very light asynchronous wrapper around the [Discogs API](https://www.discogs.com/developers/). <p>Uses a local redis instance if <code>cached=True</code> is passed to its constructor.  |
+| `artist.Artist` | <p>Hosts the Json returned by `/artists/{artist_id}`.</p> and a few derived attributes. |
+| `record.Record` | |
 
 
 
-    Help on function __init__ in module silly_collector.api:
+    Help on function __init__ in module discogs_track.api:
 
     __init__(self, cached: bool = False, config_path: str = '', currency: str = 'EUR')
     :param cached: if True, uses the local API.redis_db as cache.
