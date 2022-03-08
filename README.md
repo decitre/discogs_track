@@ -1,9 +1,10 @@
-# silly collector
+# missing track
 
 A tool for completists and other pop music collectors.
 It is inspired from R.I.P the discogs.com [Track project](https://www.discogs.com/track). 
 
 ## missing tracks ratio
+
 It calculates for a specified artist, a per record `missing_tracks_ratio`: 
 The number of tracks none of the records of the user's collection contain, over the number of tracks in the record.
  A record with a 0% score is either already in the collection as one of its various releases, or all its tracks are contained by a set of other records in the collection.
@@ -13,7 +14,11 @@ A record with a 100% score only contains tracks not present in any other record 
 
 This tool is not yet in pypi.org.
 
-    pip -v install https://github.com/gradracing/silly_collector.git
+    pip -v install https://github.com/decitre/missing_track.git
+
+To start Redis service on Macos:
+
+    brew services start redis
 
 ## Usage
 
@@ -34,12 +39,15 @@ This tool is not yet in pypi.org.
     
         The config file must have a Discogs section, containing Discogs your credentials:
             [Discogs]
+            user_name = ...
             consumer_key = ...
             consumer_secret = ...
             access_token_here = ...
             access_secret_here = ...    
 
+<!--
 ## References
 
-
 3. https://medium.com/@petehouston/install-and-config-redis-on-mac-os-x-via-homebrew-eb8df9a4f298
+
+-->

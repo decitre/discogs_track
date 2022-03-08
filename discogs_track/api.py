@@ -1,4 +1,4 @@
-import redis  # brew services start redis
+import redis
 from requests import Session
 from requests_oauthlib import OAuth1
 from ujson import loads

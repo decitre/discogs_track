@@ -1,5 +1,5 @@
-from silly_collector.api import API
-from silly_collector.artist import Artist
+from discogs_track.api import API
+from discogs_track.artist import Artist
 
 from tabulate import tabulate
 from pprint import pprint
