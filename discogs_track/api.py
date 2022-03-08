@@ -18,7 +18,7 @@ logger = getLogger('discogs_track')
 
 class API(object):
     """
-    A very light asynchronous wrapper around the Discogs Databse API
+    A very light wrapper around the Discogs Databse API
     https://www.discogs.com/developers#page:home
     """
     base_url = 'https://api.discogs.com'
