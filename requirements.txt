@@ -1,0 +1,6 @@
+requests
+requests-oauthlib
+redis
+ujson
+tabulate
+click

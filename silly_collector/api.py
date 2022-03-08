@@ -1,11 +1,12 @@
-from time import sleep
 import redis  # brew services start redis
+from requests import Session
+from requests_oauthlib import OAuth1
+from ujson import loads
+
+from time import sleep
 from pdb import set_trace
 import configparser
 import os
-from requests import Session
-from requests_oauthlib import OAuth1
-from json import loads
 from typing import List
 
 
@@ -27,6 +28,7 @@ class API(object):
 
         The config file must have a Discogs section, containing Discogs your credentials:
             [Discogs]
+            user_name = ...
             consumer_key = ...
             consumer_secret = ...
             access_token_here = ...
@@ -42,21 +44,23 @@ class API(object):
                            config.get('Discogs', 'consumer_secret'),
                            config.get('Discogs', 'access_token_here'),
                            config.get('Discogs', 'access_secret_here'))
+        self.user_name = config.get('Discogs', 'user_name')
         self.user_agent = f'missing_songs/{API.my_version}'
         self.session = Session()
         self.session.auth = self.auth
         self.session.headers.update({'User-Agent': self.user_agent})
 
-    def get_artist(self, artist_id: int) -> dict:
+    def get_artist(self, artist_id: int, from_cache: bool=False) -> dict:
         """
         https://www.discogs.com/developers#page:database,header:database-artist-get
         :param artist_id: the Discogs artist id
+        :param from_cache: Set to True: takes artist information form the cache (default: False)
         :return: a dictionary containing the Discogs artist details
         """
-        obj = self._get(f'/artists/{artist_id}')
+        obj = self._get(f'/artists/{artist_id}', from_cache=from_cache)
         return obj
 
-    def get_releases(self, artist_id: int) -> List[dict]:
+    def get_releases(self, artist_id: int, from_cache: bool=True) -> List[dict]:
         """
         https://www.discogs.com/developers#page:database,header:database-artist-releases-get
         :param artist_id: the Discogs artist id
@@ -64,22 +68,31 @@ class API(object):
         """
         pages = []
         while True:
-            obj = self._get(f'/artists/{artist_id}/releases?per_page=500&page={len(pages) + 1}')
+            obj = self._get(f'/artists/{artist_id}/releases?per_page=500&page={len(pages) + 1}', from_cache=from_cache)
             pages.append(obj)
             if obj['pagination']['pages'] == len(pages):
                 break
         return pages
 
-    def get_release(self, release_id: int) -> dict:
+    def get_release(self, release_id: int, from_cache: bool=True) -> dict:
         """
         https://www.discogs.com/developers#page:database,header:database-release-get
         :param release_id: the Discogs record release id
         :return: a dictionary containing the details of the release
         """
-        obj = self._get(f'/releases/{release_id}?{self.currency}')
+        obj = self._get(f'/releases/{release_id}?{self.currency}', from_cache=from_cache)
         return obj
 
-    def get_master_releases(self, master_id: int) -> List[dict]:
+    def get_stats(self, release_id: int, from_cache: bool=True) -> dict:
+        """
+        https://www.discogs.com/developers#page:database,header:database-release-stats
+        :param release_id: the Discogs record release id
+        :return: a dictionary containing the details of the release
+        """
+        obj = self._get(f'/releases/{release_id}/stats', from_cache=from_cache)
+        return obj
+
+    def get_master_releases(self, master_id: int, from_cache=True) -> List[dict]:
         """
         https://www.discogs.com/developers#page:database,header:database-master-release-versions-get
         :param master_id: the Discogs record master id
@@ -87,15 +100,32 @@ class API(object):
         """
         pages = []
         while True:
-            obj = self._get(f'/masters/{master_id}/versions?per_page=500&page={len(pages) + 1}')
+            obj = self._get(f'/masters/{master_id}/versions?per_page=500&page={len(pages) + 1}', from_cache=from_cache)
             pages.append(obj)
             if obj['pagination']['pages'] == len(pages):
                 break
         return pages
 
-    def _get(self, query: str) -> dict:
+    def get_collection_item(self, release_id: int, from_cache: bool=True) -> List[dict]:
+        """
+        https://www.discogs.com/developers/#page:user-collection,header:user-collection-collection-items-by-release
+        :param release_id: the Discogs record release id
+        :return: a dictionary containing the details of the release
+        """
+        pages = []
+        while True:
+            obj = self._get(f'/users/{self.user_name}/collection/releases/{release_id}?per_page=500&page={len(pages) + 1}',
+                            from_cache=from_cache)
+            pages.append(obj)
+            if obj['pagination']['pages'] == len(pages):
+                break
+        return pages
+
+
+    #
+    def _get(self, query: str, from_cache: bool=True) -> dict:
         url = f'{API.base_url}{query}'
-        if self.cached and url in self._cache:
+        if self.cached and url in self._cache and from_cache:
             print(f'{url} (from cache)')
             return loads(self._cache[url].decode())
         for _ in range(3):
