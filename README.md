@@ -34,7 +34,7 @@ Examples:
     discogs_track --no-cache artist -i 3281311 show-completing --for-sale
     discogs_track artist -i 3281311 release -i 20846845 show
 
-The tool expects in `~/.sc.cfg` a INI config file containing a Discogs user credentials:
+The tool expects in `~/.dt.cfg` a INI config file containing a Discogs user credentials:
 
     [Discogs]
     user_name = ...
@@ -52,7 +52,7 @@ Some classes can be used as a SDK giving access to a subset of Discogs API featu
 | `api.API` | A very light asynchronous wrapper around the [Discogs API](https://www.discogs.com/developers/). <p>Uses a local redis instance if <code>cached=True</code> is passed to its constructor.  |
 | `artist.Artist` | <p>Hosts the Json returned by `/artists/{artist_id}`.</p> and a few derived attributes. |
 | `record.Record` | |
-| `record.Track` | An abstraction of releases `tracklist` array element|
+| `record.Track` | An abstraction of releases `tracklist` array elements|
 
 
 ## missing tracks ratio

@@ -24,11 +24,12 @@ class API(object):
     base_url = 'https://api.discogs.com'
     max_per_minute = 59
     redis_db = 0
+    config_file = 'dt.cfg'
 
     def __init__(self, cached: bool = False, config_path: str = '', currency: str = 'EUR'):
         """
         :param cached: if True, uses the local API.redis_db as cache.
-        :param config_path: The path of the .ini config file. Takes "sc.cfg" or "~/.sc.cfg" if not provided
+        :param config_path: The path of the .ini config file. Takes "dt.cfg" or "~/.dt.cfg" if not provided
         :param currency: The currency for Discogs prices. Takes "EUR" if not provided.
 
         The config file must have a Discogs section, containing Discogs your credentials:
@@ -44,7 +45,7 @@ class API(object):
         self.cached = cached
 
         config = configparser.ConfigParser()
-        config.read([config_path, 'sc.cfg', os.path.expanduser('~/.sc.cfg')])
+        config.read([config_path, API.config_file, os.path.expanduser(f'~/.{API.config_file}')])
         self.auth = OAuth1(config.get('Discogs', 'consumer_key'),
                            config.get('Discogs', 'consumer_secret'),
                            config.get('Discogs', 'access_token_here'),
