@@ -1,6 +1,6 @@
 # silly collector
 
-A tool for completists and other silly music collectors.
+A tool for completists and other pop music collectors.
 It is inspired from R.I.P the discogs.com [Track project](https://www.discogs.com/track). 
 
 ## missing tracks ratio
