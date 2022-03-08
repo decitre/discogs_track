@@ -1,7 +1,7 @@
 # missing track
 
 A tool for completists and other pop music collectors.
-It is inspired by R.I.P the discogs.com [Track project](https://www.discogs.com/track). 
+It is inspired by R.I.P the discogs.com [Tracks Beta project](https://www.discogs.com/track). 
 
 ## Installation
 
