@@ -127,35 +127,38 @@ class Artist:
     def get_records(self, artist_id: int, api: API, from_cache: bool=None, verbosity: int=0) -> dict:
         records = {}
         releases_pages = api.get_releases(artist_id, from_cache=from_cache)
-        for release in tqdm((release for release_page in releases_pages for release in release_page["releases"]), desc='releases'):
-            if release["artist"] == self.name:
-                artist = self
-            elif release["artist"] == "Various":
-                artist = various
-            else:
-                continue
+        with tqdm(desc='releases') as pbar:
+            for release in [release for release_page in releases_pages for release in release_page["releases"]]:
+                if release["artist"] == self.name:
+                    artist = self
+                elif release["artist"] == "Various":
+                    artist = various
+                else:
+                    continue
 
-            if release["type"] == "master":
-                master_versions_pages = api.get_master_releases(master_id=release["id"], from_cache=from_cache)
-                for page in master_versions_pages:
-                    for version in page["versions"]:
-                        record = Record(record_id=version["id"],
-                                        artist=artist,
-                                        with_artists=self.artists,
-                                        version_raw_data=version,
-                                        api=api,
-                                        from_cache=from_cache)
-                        if not record.is_digital:
-                            records[record.id] = record
-            else:
-                assert(release["type"] == "release")
-                record = Record(record_id=release["id"],
-                                artist=artist,
-                                with_artists=self.artists,
-                                api=api,
-                                from_cache=from_cache)
-                if not record.is_digital:
-                    records[record.id] = record
+                if release["type"] == "master":
+                    master_versions_pages = api.get_master_releases(master_id=release["id"], from_cache=from_cache)
+                    for page in master_versions_pages:
+                        for version in page["versions"]:
+                            record = Record(record_id=version["id"],
+                                            artist=artist,
+                                            with_artists=self.artists,
+                                            version_raw_data=version,
+                                            api=api,
+                                            from_cache=from_cache)
+                            pbar.update(1)
+                            if not record.is_digital:
+                                records[record.id] = record
+                else:
+                    assert(release["type"] == "release")
+                    record = Record(record_id=release["id"],
+                                    artist=artist,
+                                    with_artists=self.artists,
+                                    api=api,
+                                    from_cache=from_cache)
+                    pbar.update(1)
+                    if not record.is_digital:
+                        records[record.id] = record
         return records
 
     def get_tracks(self):

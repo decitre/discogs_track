@@ -146,7 +146,7 @@ class API(object):
             elif rate_limit_remaining < 10:
                 sleep(2)
             obj = loads(text)
-            if obj == {'message': 'You are making requests too quickly.'}:
+            if obj == {'message': 'We are making requests too quickly.'}:
                 set_trace()
                 pass
             return obj

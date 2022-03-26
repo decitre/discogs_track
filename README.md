@@ -13,6 +13,11 @@ To start Redis service on Macos:
 
     brew services start redis
 
+[Shell completion](https://click.palletsprojects.com/en/latest/shell-completion) on zsh:
+
+    _DISCOGS_TRACK_COMPLETE=zsh_source discogs_track > ~/.discogs_track-complete.zsh
+    echo ". ~/.discogs_track-complete.zsh" >> ~/.zshrc
+
 ## Usage
 
     discogs_track --help
