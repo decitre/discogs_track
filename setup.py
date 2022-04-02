@@ -5,8 +5,7 @@ setuptools.setup(
     name='discogs_track',
     version=__version__,
     license_files=('LICENSE',),
-    packages=['discogs_track'],
-    py_modules=['silly_collector'],
+    packages=setuptools.find_packages(),
     entry_points={'console_scripts': ['discogs_track=discogs_track:cli']},
     python_requires='>=3.7',
 )

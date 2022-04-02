@@ -3,7 +3,7 @@ __version__ = '0.2.0'
 import click
 from tabulate import tabulate
 
-from .api import API
+from .api import API, Cache
 from .artist import Artist
 
 from logging import getLogger, basicConfig, DEBUG, ERROR, INFO
@@ -15,17 +15,17 @@ logger = getLogger('discogs_track')
 @click.group('discogs_track')
 @click.version_option()
 @click.option('-v', '--verbose', count=True)
-@click.option('--cache/--no-cache', default=True)
+@click.option('--from-cache/--no-from-cache', default=True)
 @click.pass_context
-def cli(ctx, cache: click.BOOL, verbose: click.INT):
+def cli(ctx, from_cache: click.BOOL, verbose: click.INT):
     ctx.ensure_object(dict)
     basicConfig()
     if verbose == 1:
         logger.setLevel(INFO)
     elif verbose > 1:
         logger.setLevel(DEBUG)
-    ctx.obj['from_cache'] = cache
-    ctx.obj['api'] = API(cached=cache)
+    ctx.obj['from_cache'] = from_cache
+    ctx.obj['api'] = API()
     ctx.obj['verbose'] = verbose
     if verbose > 2:
         for line in tabulate(ctx.obj['api'].cache.info().items()).split("\n"):

@@ -1,5 +1,5 @@
-import redis
-from requests import Session
+from redis import Redis
+from requests import Session, Response, PreparedRequest
 from requests_oauthlib import OAuth1
 from ujson import loads
 
@@ -9,11 +9,55 @@ from time import sleep
 from pdb import set_trace
 import configparser
 import os
-from typing import List
+from typing import List, MutableMapping, Optional
 
 from logging import getLogger, DEBUG, ERROR, INFO
 
 logger = getLogger('discogs_track')
+
+
+class Config:
+    auth: OAuth1
+
+    CONFIG_FILE = 'dt.cfg'
+
+    def __init__(self, config_path: str=None):
+        config = configparser.ConfigParser()
+        config.read([config_path or '', Config.CONFIG_FILE, os.path.expanduser(f'~/.{Config.CONFIG_FILE}')])
+        self._auth = OAuth1(config.get('Discogs', 'consumer_key'),
+                           config.get('Discogs', 'consumer_secret'),
+                           config.get('Discogs', 'access_token_here'),
+                           config.get('Discogs', 'access_secret_here'))
+        self._user_name = config.get('Discogs', 'user_name')
+
+    @property
+    def auth(self):
+        return self._auth
+
+    @property
+    def user_name(self):
+        return self._user_name
+
+
+class TooQuicklyRequests(Exception):
+    pass
+
+
+class Cache:
+    _cache: Redis
+    REDIS_DB = 0
+
+    def __init__(self):
+        self._cache = Redis(host='localhost', port=6379, db=Cache.REDIS_DB)
+
+    def __getitem__(self, key: str) -> str:
+        return self._cache.get(key)
+
+    def __setitem__(self, key: str, value: str) -> None:
+        return self._cache.get(key)
+
+    def __contains__(self, key: str) -> bool:
+        return bool(self._cache.exists(key))
 
 
 class API(object):
@@ -23,10 +67,8 @@ class API(object):
     """
     base_url = 'https://api.discogs.com'
     max_per_minute = 59
-    redis_db = 0
-    config_file = 'dt.cfg'
 
-    def __init__(self, cached: bool = False, config_path: str = '', currency: str = 'EUR'):
+    def __init__(self, config: Config=None, currency: str = 'EUR'):
         """
         :param cached: if True, uses the local API.redis_db as cache.
         :param config_path: The path of the .ini config file. Takes "dt.cfg" or "~/.dt.cfg" if not provided
@@ -41,19 +83,17 @@ class API(object):
             access_secret_here = ...
         """
         self.currency = currency
-        self.cache = redis.Redis(host='localhost', port=6379, db=API.redis_db)
-        self.cached = cached
 
-        config = configparser.ConfigParser()
-        config.read([config_path, API.config_file, os.path.expanduser(f'~/.{API.config_file}')])
-        self.auth = OAuth1(config.get('Discogs', 'consumer_key'),
-                           config.get('Discogs', 'consumer_secret'),
-                           config.get('Discogs', 'access_token_here'),
-                           config.get('Discogs', 'access_secret_here'))
-        self.user_name = config.get('Discogs', 'user_name')
+        self.cache = Cache()
+
+        if config is None:
+            config = Config()
+
+        self.user_name = config.user_name
         self.user_agent = f'discogs_track/{__version__}'
+
         self.session = Session()
-        self.session.auth = self.auth
+        self.session.auth = config.auth
         self.session.headers.update({'User-Agent': self.user_agent})
 
     def get_artist(self, artist_id: int, from_cache: bool=False) -> dict:
@@ -63,7 +103,7 @@ class API(object):
         :param from_cache: Set to True: takes artist information form the cache (default: False)
         :return: a dictionary containing the Discogs artist details
         """
-        obj = self._get(f'/artists/{artist_id}', from_cache=from_cache)
+        obj = self.uncache_or_get(f'/artists/{artist_id}', from_cache=from_cache)
         return obj
 
     def get_releases(self, artist_id: int, from_cache: bool=True) -> List[dict]:
@@ -74,11 +114,16 @@ class API(object):
         """
         pages = []
         while True:
-            obj = self._get(f'/artists/{artist_id}/releases?per_page=500&page={len(pages) + 1}', from_cache=from_cache)
+            expected_page_number = len(pages) + 1
+            obj = self.get_artist_releases_page(artist_id, expected_page_number, from_cache=from_cache)
             pages.append(obj)
-            if obj['pagination']['pages'] == len(pages):
+            if obj['pagination']['pages'] == expected_page_number:
                 break
         return pages
+
+    def get_artist_releases_page(self, artist_id, expected_page_number, from_cache) -> dict:
+        return self.uncache_or_get(f'/artists/{artist_id}/releases?per_page=500&page={expected_page_number}',
+                                   from_cache=from_cache)
 
     def get_release(self, release_id: int, from_cache: bool=True) -> dict:
         """
@@ -86,7 +131,7 @@ class API(object):
         :param release_id: the Discogs record release id
         :return: a dictionary containing the details of the release
         """
-        obj = self._get(f'/releases/{release_id}?{self.currency}', from_cache=from_cache)
+        obj = self.uncache_or_get(f'/releases/{release_id}?{self.currency}', from_cache=from_cache)
         return obj
 
     def get_stats(self, release_id: int, from_cache: bool=True) -> dict:
@@ -95,7 +140,7 @@ class API(object):
         :param release_id: the Discogs record release id
         :return: a dictionary containing the details of the release
         """
-        obj = self._get(f'/releases/{release_id}/stats', from_cache=from_cache)
+        obj = self.uncache_or_get(f'/releases/{release_id}/stats', from_cache=from_cache)
         return obj
 
     def get_master_releases(self, master_id: int, from_cache=True) -> List[dict]:
@@ -106,11 +151,17 @@ class API(object):
         """
         pages = []
         while True:
-            obj = self._get(f'/masters/{master_id}/versions?per_page=500&page={len(pages) + 1}', from_cache=from_cache)
+            expected_page_number = len(pages) + 1
+            obj = self.get_master_releases_page(master_id, expected_page_number, from_cache=from_cache)
             pages.append(obj)
-            if obj['pagination']['pages'] == len(pages):
+            if obj['pagination']['pages'] == expected_page_number:
                 break
         return pages
+
+    def get_master_releases_page(self, master_id, pages_number, from_cache):
+        obj = self.uncache_or_get(f'/masters/{master_id}/versions?per_page=500&page={pages_number + 1}',
+                                  from_cache=from_cache)
+        return obj
 
     def get_collection_item(self, release_id: int, from_cache: bool=True) -> List[dict]:
         """
@@ -120,33 +171,56 @@ class API(object):
         """
         pages = []
         while True:
-            obj = self._get(f'/users/{self.user_name}/collection/releases/{release_id}?per_page=500&page={len(pages) + 1}',
-                            from_cache=from_cache)
+            expected_page_number = len(pages) + 1
+            obj = self.get_collection_item_page(release_id, expected_page_number, from_cache=from_cache)
             pages.append(obj)
-            if obj['pagination']['pages'] == len(pages):
+            if obj['pagination']['pages'] == expected_page_number:
                 break
         return pages
 
-    def _get(self, query: str, from_cache: bool=True) -> dict:
+    def get_collection_item_page(self, release_id, expected_page_number, from_cache):
+        obj = self.uncache_or_get(
+            f'/users/{self.user_name}/collection/releases/{release_id}?per_page=500&page={expected_page_number}',
+            from_cache=from_cache)
+        return obj
+
+    def uncache_or_get(self, query: str, from_cache: bool=True) -> dict:
         url = f'{API.base_url}{query}'
-        if self.cached and url in self.cache and from_cache:
+        cached = url in self.cache and from_cache
+        if cached:
             logger.debug(f'{url} (from cache)')
-            return loads(self.cache[url].decode())
-        for _ in range(3):
-            resp = self.session.get(url)
-            text = resp.text
-            rate_limit_remaining = int(resp.headers["X-Discogs-Ratelimit-Remaining"])
-            logger.debug(f'{url} (remaining rate limit: {rate_limit_remaining}/minute)')
+            text = self.cache[url]
+        else:
+            text = self.get(url)
             self.cache[url] = text
-            if rate_limit_remaining < 2:
-                logger.warning('Wait 60s')
-                sleep(60)
-            elif rate_limit_remaining < 6:
-                sleep(5)
-            elif rate_limit_remaining < 10:
-                sleep(2)
-            obj = loads(text)
-            if obj == {'message': 'We are making requests too quickly.'}:
-                set_trace()
-                pass
-            return obj
+
+        obj = self.loads_or_fail(text)
+
+        return obj
+
+    @staticmethod
+    def loads_or_fail(text):
+        obj = loads(text)
+        if obj == {'message': 'We are making requests too quickly.'}:
+            raise TooQuicklyRequests()
+        return obj
+
+    def get(self, url) -> str:
+        resp = self.session.get(url)
+        text = resp.text
+        self.sleep_if_needed(resp)
+        return text
+
+    @staticmethod
+    def sleep_if_needed(resp: Response):
+        rate_limit_remaining = int(resp.headers["X-Discogs-Ratelimit-Remaining"])
+        request: PreparedRequest = resp.request
+        logger.debug(f'{request.url} (remaining rate limit: {rate_limit_remaining}/minute)')
+        if rate_limit_remaining < 2:
+            logger.warning('Wait 90s')
+            sleep(90)
+        elif rate_limit_remaining < 6:
+            sleep(5)
+        elif rate_limit_remaining < 10:
+            sleep(2)
+
