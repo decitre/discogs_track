@@ -1,22 +1,28 @@
-from dataclasses import dataclass
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .record import Record  # type: ignore
+    from .artist import Artist  # type: ignore
 
 
 @dataclass
 class Track:
-    """ """
-
     raw: dict
-    artist: "Artist"
+    artist: Optional[Artist]
     title: str
     duration: str
     records: dict
     in_collection: bool
     alternatives: set  # "alternative_tracks" maybe? or "other_versions"?
 
-    _tracks = {}  # Indexed by artist_ids csv, then title, then duration
+    _tracks: Dict[str, Dict[str, Dict[str, "Track"]]] = field(
+        default_factory=dict
+    )  # Indexed by artist_ids csv, then title, then duration
 
     @staticmethod
-    def get_or_create(track_dict: dict, record: "Record", artist: "Artist" = None):
+    def get_or_create(track_dict: dict, record: Record, artist: Artist = None):
         title = track_dict["title"]
         duration = track_dict["duration"]
         if (
@@ -31,11 +37,11 @@ class Track:
         return track
 
     @staticmethod
-    def get_all(artist: "Artist"):
+    def get_all(artist: Artist):
         """Returns the list of Track objects for the specified Artist"""
         return Track._tracks.get(artist.full_id)
 
-    def __init__(self, artist: "Artist", record: "Record", track_dict: dict):
+    def __init__(self, artist: Artist, record: Record, track_dict: dict):
         self.raw = track_dict
         self.artist = artist
         self.title = track_dict["title"].strip()
@@ -47,7 +53,7 @@ class Track:
         self.alternatives = set()
         self._register()
 
-    def add_record(self, record: "Record"):
+    def add_record(self, record: Record):
         self.records[record.id] = record
         if record.in_collection is not None:
             if self.in_collection is None:

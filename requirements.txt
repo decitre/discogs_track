@@ -1,4 +1,5 @@
 requests
+responses
 requests-oauthlib
 redis
 ujson

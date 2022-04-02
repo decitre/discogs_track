@@ -1,27 +1,39 @@
 from redis import Redis
 from requests import Session, Response, PreparedRequest
-from requests_oauthlib import OAuth1
+from requests_oauthlib import OAuth1  # type: ignore
 from ujson import loads
 
-from . import __version__
+import discogs_track
 
 from time import sleep
-from pdb import set_trace
 import configparser
 import os
-from typing import List, MutableMapping, Optional
+from typing import List, Union
 
-from logging import getLogger, DEBUG, ERROR, INFO
+from logging import getLogger
 
 logger = getLogger("discogs_track")
 
 
 class Config:
-    auth: OAuth1
+    _auth: OAuth1
 
     CONFIG_FILE = "dt.cfg"
 
     def __init__(self, config_path: str = None):
+        """
+        :param config_path: The path of the .ini config file. Takes "dt.cfg" or
+        "~/.dt.cfg" if not provided
+
+        The config file must have a Discogs section, containing Discogs your
+        credentials:
+            [Discogs]
+            user_name = ...
+            consumer_key = ...
+            consumer_secret = ...
+            access_token_here = ...
+            access_secret_here = ...
+        """
         config = configparser.ConfigParser()
         config.read(
             [
@@ -58,11 +70,11 @@ class Cache:
     def __init__(self):
         self._cache = Redis(host="localhost", port=6379, db=Cache.REDIS_DB)
 
-    def __getitem__(self, key: str) -> str:
+    def __getitem__(self, key: str) -> Union[str, None]:
         return self._cache.get(key)
 
     def __setitem__(self, key: str, value: str) -> None:
-        return self._cache.get(key)
+        self._cache.set(key, value)
 
     def __contains__(self, key: str) -> bool:
         return bool(self._cache.exists(key))
@@ -79,17 +91,8 @@ class API(object):
 
     def __init__(self, config: Config = None, currency: str = "EUR"):
         """
-        :param cached: if True, uses the local API.redis_db as cache.
-        :param config_path: The path of the .ini config file. Takes "dt.cfg" or "~/.dt.cfg" if not provided
+        :param config: instance of Config class
         :param currency: The currency for Discogs prices. Takes "EUR" if not provided.
-
-        The config file must have a Discogs section, containing Discogs your credentials:
-            [Discogs]
-            user_name = ...
-            consumer_key = ...
-            consumer_secret = ...
-            access_token_here = ...
-            access_secret_here = ...
         """
         self.currency = currency
 
@@ -99,7 +102,7 @@ class API(object):
             config = Config()
 
         self.user_name = config.user_name
-        self.user_agent = f"discogs_track/{__version__}"
+        self.user_agent = f"discogs_track/{discogs_track.__version__}"
 
         self.session = Session()
         self.session.auth = config.auth
@@ -109,7 +112,8 @@ class API(object):
         """
         https://www.discogs.com/developers#page:database,header:database-artist-get
         :param artist_id: the Discogs artist id
-        :param from_cache: Set to True: takes artist information form the cache (default: False)
+        :param from_cache: Set to True: takes artist information form the cache
+        (default: False)
         :return: a dictionary containing the Discogs artist details
         """
         obj = self.uncache_or_get(f"/artists/{artist_id}", from_cache=from_cache)
@@ -117,11 +121,13 @@ class API(object):
 
     def get_releases(self, artist_id: int, from_cache: bool = True) -> List[dict]:
         """
-        https://www.discogs.com/developers#page:database,header:database-artist-releases-get
+        https://www.discogs.com/developers
+                                    #page:database,header:database-artist-releases-get
         :param artist_id: the Discogs artist id
+        :param from_cache: True to get releases from cache if available
         :return: an array of pages of Discogs releases for the artist
         """
-        pages = []
+        pages: List[dict] = []
         while True:
             expected_page_number = len(pages) + 1
             obj = self.get_artist_releases_page(
@@ -144,6 +150,7 @@ class API(object):
         """
         https://www.discogs.com/developers#page:database,header:database-release-get
         :param release_id: the Discogs record release id
+        :param from_cache: True to get release from cache if available
         :return: a dictionary containing the details of the release
         """
         obj = self.uncache_or_get(
@@ -155,6 +162,7 @@ class API(object):
         """
         https://www.discogs.com/developers#page:database,header:database-release-stats
         :param release_id: the Discogs record release id
+        :param from_cache: True to get stats for releases in cache if available
         :return: a dictionary containing the details of the release
         """
         obj = self.uncache_or_get(
@@ -165,10 +173,11 @@ class API(object):
     def get_master_releases(self, master_id: int, from_cache=True) -> List[dict]:
         """
         https://www.discogs.com/developers#page:database,header:database-master-release-versions-get
+        :param from_cache: True to get master releases from cache if available
         :param master_id: the Discogs record master id
         :return:
         """
-        pages = []
+        pages: List[dict] = []
         while True:
             expected_page_number = len(pages) + 1
             obj = self.get_master_releases_page(
@@ -190,11 +199,13 @@ class API(object):
         self, release_id: int, from_cache: bool = True
     ) -> List[dict]:
         """
-        https://www.discogs.com/developers/#page:user-collection,header:user-collection-collection-items-by-release
+        https://www.discogs.com/developers/
+                page:user-collection,header:user-collection-collection-items-by-release
         :param release_id: the Discogs record release id
+        :param from_cache: True to get collection items from cache if available
         :return: a dictionary containing the details of the release
         """
-        pages = []
+        pages: List[dict] = []
         while True:
             expected_page_number = len(pages) + 1
             obj = self.get_collection_item_page(
@@ -207,7 +218,8 @@ class API(object):
 
     def get_collection_item_page(self, release_id, expected_page_number, from_cache):
         obj = self.uncache_or_get(
-            f"/users/{self.user_name}/collection/releases/{release_id}?per_page=500&page={expected_page_number}",
+            f"/users/{self.user_name}/collection/releases/{release_id}?"
+            f"per_page=500&page={expected_page_number}",
             from_cache=from_cache,
         )
         return obj

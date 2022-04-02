@@ -1,8 +1,11 @@
-from typing import Dict
+from __future__ import annotations
+from typing import Dict, Optional, TYPE_CHECKING
 
-from .api import API
-from .track import Track
+from .api import API  # type: ignore
+from .track import Track  # type: ignore
 
+if TYPE_CHECKING:
+    from .artist import Artist  # type: ignore
 from dataclasses import dataclass
 
 
@@ -12,26 +15,27 @@ class Record:
     Hosts the values returned by the API get_release(artist_id) method.
 
     Primary members:
-    - artists: The release related Artist objects indexed by artist id
+    - ARTISTS: The release related Artist objects indexed by artist id
     - format: A formatted format string :)
     - in_collection: set to True when the release is in the user collection
     - missing_tracks: List of Track objects from that release not in the user collection
-    - missing_tracks_ratio: Number of the release missing tracks over the total number of release tracks
-    - track_artist_ids: List of Discogs ids of all tracks contributing artists
+    - missing_tracks_ratio: Number of the release missing tracks over the total
+    number of release tracks
+    - track_artist_ids: List of Discogs ids of all tracks contributing ARTISTS
     - tracks: dict of Track objects lists for a specific artist in the record
     """
 
     raw: dict
-    version_raw: dict
+    version_raw: Optional[dict]
     id: int
     artists: dict
     artist_full_id: str
     title: str
-    url: str
+    url: Optional[str]
     format: str
     year: str
     is_digital: bool
-    num_for_sale: int
+    num_for_sale: Optional[int]
     tracks: dict
     track_artist_ids: set
     missing_tracks: list
@@ -41,8 +45,8 @@ class Record:
     def __init__(
         self,
         record_id: int,
-        artist: "Artist" = None,
-        with_artists: Dict[int, "Artist"] = None,
+        artist: Artist = None,
+        with_artists: Dict[int, Artist] = None,
         from_cache: bool = True,
         api: API = None,
         version_raw_data: dict = None,
@@ -59,7 +63,7 @@ class Record:
         self.missing_tracks_ratio = {}
 
         if api is None:
-            api = API(cached=from_cache)
+            api = API()
         release_details = api.get_release(release_id=self.id, from_cache=from_cache)
 
         self.raw = release_details
@@ -128,7 +132,8 @@ class Record:
 
     def __init_tracks(self):
         """Create the record related Track objects and registers them.
-        :param artists: Only create Track instances for specific artists (example of compilations)
+        :param ARTISTS: Only create Track instances for specific ARTISTS (example of
+        compilations)
         :return: None
         """
 
@@ -138,12 +143,12 @@ class Record:
             self.track_artist_ids.update(
                 {
                     artist["id"]
-                    for artist in track_dict.get("artists", self.raw.get("artists", []))
+                    for artist in track_dict.get("ARTISTS", self.raw.get("ARTISTS", []))
                 }
             )
             track_artist_ids = {
                 artist["id"]
-                for artist in track_dict.get("artists", self.raw.get("artists", []))
+                for artist in track_dict.get("ARTISTS", self.raw.get("ARTISTS", []))
             }
             if self.with_artists:
                 track_artist_ids = track_artist_ids.intersection(self.with_artists)

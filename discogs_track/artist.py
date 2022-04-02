@@ -1,11 +1,11 @@
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore  # https://github.com/tqdm/tqdm/issues/260
 
-from .api import API
-from .record import Record
-from .track import Track
+from .api import API  # type: ignore
+from .record import Record  # type: ignore
+from .track import Track  # type: ignore
 
-from typing import Optional, Dict
-from dataclasses import dataclass
+from typing import Optional, Dict, Union
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -14,23 +14,28 @@ class Artist:
     Hosts the values returned by the API get_artist(artist_id) method.
 
     Primary members:
-    - aliases: the list of Artist object of each id. Artists with no aliases have self as unique _aliases value.
+    - aliases: the list of Artist object of each id. Artists with no aliases have self
+      as unique _aliases value.
     - records: the dict of the artist Record objects indexed by their release id
-    - missing_tracks: The dict of the user's collection missing artist tracks, indexed by track title
+    - missing_tracks: The dict of the user's collection missing artist tracks, indexed
+      by track title
 
     For example:
       aliases: [Artist(Fad Gadget)]
-      records: {28107: Record(Frank Tovey, Some Bizzare Album, LP, Compilation, Album, 1981, 0.0, https://www.discogs.com/Various-Some-Bizzare-Album/release/28107 )
+      records: {28107: Record(Frank Tovey, Some Bizzare Album, LP, Compilation, Album,
+                1981, 0.0, https://www.discogs.com/Various-Some-Bizzare-Album/release
+                /28107 )
                 ...}
       missing_tracks:  {"Collapsing New People":
                             {'3:33': Track(Collapsing New People, 3:33),
                              '3:50': Track(Collapsing New People, 3:50), ... }
 
-    The class is mostly useful for its discover_missing_tracks() and check_for_completing_records() methods
+    The class is mostly useful for its discover_missing_tracks() and
+    check_for_completing_records() methods
     """
 
     raw: dict
-    id: int
+    id: Optional[int]
     all: Dict[int, "Artist"]
     full_id: str
     name: str
@@ -40,17 +45,20 @@ class Artist:
     aliases: list
     records: dict
     missing_tracks: dict
+    completing_records: Dict[int, Dict[int, Record]]
 
-    artists = {}
+    ARTISTS: Dict[Union[int, None], "Artist"] = field(default_factory=dict)
 
     @classmethod
     def from_artist_id(cls, artist_id: int, api: API, alias=None) -> object:
         """
-        Creates a new Artist object for a specific id, and register it in Artist.artists class dict.
-        If the Artist already exists in the artists dict, return it instead of creating it.
+        Creates a new Artist object for a specific id, and register it in Artist.ARTISTS
+        class dict. If the Artist already exists in the ARTISTS dict, return it
+        instead of creating it.
 
-        This method is mostly useful to not multiply Artist instances for the various artist aliases.
-        It is typically initially called with no alias parameter by the Artist.__init__ constructor
+        This method is mostly useful to not multiply Artist instances for the various
+        artist aliases. It is typically initially called with no alias parameter by
+        the Artist.__init__ constructor
 
         :param artist_id:
         :param api:
@@ -58,14 +66,14 @@ class Artist:
         :return: Artist class instance
         """
 
-        if artist_id in Artist.artists:
-            return Artist.artists[artist_id]
+        if artist_id in Artist.ARTISTS:
+            return Artist.ARTISTS[artist_id]
         else:
             return Artist(artist_id, api, alias)
 
     def __init__(
         self,
-        artist_id: Optional[int],
+        artist_id: int,
         api: Optional[API] = None,
         alias=None,
         from_cache=True,
@@ -88,7 +96,7 @@ class Artist:
         self.missing_tracks = {}
         self.completing_records = {}
 
-        Artist.artists[artist_id] = self
+        Artist.ARTISTS[artist_id] = self
 
         if not api:
             return
@@ -115,7 +123,7 @@ class Artist:
                 ]
             self.__init_all()
         else:
-            # The alias artists have only one alias: the entry artist
+            # The alias ARTISTS have only one alias: the entry artist
             if alias not in self.aliases:
                 self.aliases.append(alias)
             if self not in alias.aliases:
@@ -130,7 +138,8 @@ class Artist:
             alias.full_id = self.full_id
 
     def check_for_completing_records(self):
-        """Sets self.completing_records and calculates for each artist record, its missing tracks ratio"""
+        """Sets self.completing_records and calculates for each artist record,
+        its missing tracks ratio"""
         self.completing_records = {}
         for id_, record in self.records.items():
             if isinstance(record, Record):
@@ -151,7 +160,7 @@ class Artist:
                 for release in release_page["releases"]
             ]:
                 if release["artist"] == self.name:
-                    artist = self
+                    artist: Union[Artist, Various] = self
                 elif release["artist"] == "Various":
                     artist = various
                 else:
@@ -166,7 +175,7 @@ class Artist:
                             record = Record(
                                 record_id=version["id"],
                                 artist=artist,
-                                with_artists=self.artists,
+                                with_artists=self.ARTISTS,
                                 version_raw_data=version,
                                 api=api,
                                 from_cache=from_cache,
@@ -179,7 +188,7 @@ class Artist:
                     record = Record(
                         record_id=release["id"],
                         artist=artist,
-                        with_artists=self.artists,
+                        with_artists=self.ARTISTS,
                         api=api,
                         from_cache=from_cache,
                     )
@@ -194,14 +203,14 @@ class Artist:
 
     def discover_missing_tracks(self) -> dict:
         tracks = self.get_tracks()
-        _missing = {}
+        _missing: Dict[str, Dict[str, Track]] = {}
         for title, title_data in tracks.items():
             for duration, track in title_data.items():
                 if not track.in_collection and not (
                     not track.duration and track.alternatives
                 ):
                     _missing.setdefault(title, {})[duration] = track
-                    for record_id, record in track.records.items():
+                    for _record_id, record in track.records.items():
                         assert not record.in_collection
                         if track not in record.missing_tracks:
                             record.missing_tracks.append(track)
@@ -225,7 +234,7 @@ class Artist:
             track_data = tracks[track_title]
             for duration in sorted(track_data)[::-1]:
                 track = track_data[duration]
-                for record_id, record in track.records.items():
+                for _record_id, record in track.records.items():
                     tracks_table.append(
                         (
                             "" if not track.in_collection else "X",
@@ -256,11 +265,12 @@ class Artist:
             if missing_nb <= min_tracks_number:
                 continue
             with_this_nb = self.completing_records[missing_nb]
-            for release_id, record in with_this_nb.items():
+            missing_nb_s = str(missing_nb)
+            for _release_id, record in with_this_nb.items():
                 if for_sale and not record.num_for_sale:
                     continue
-                records_table.append([missing_nb, record])
-                missing_nb = ""
+                records_table.append([missing_nb_s, record])
+                missing_nb_s = ""
         return records_table
 
     def __repr__(self):
