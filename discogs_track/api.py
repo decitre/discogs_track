@@ -13,22 +13,30 @@ from typing import List, MutableMapping, Optional
 
 from logging import getLogger, DEBUG, ERROR, INFO
 
-logger = getLogger('discogs_track')
+logger = getLogger("discogs_track")
 
 
 class Config:
     auth: OAuth1
 
-    CONFIG_FILE = 'dt.cfg'
+    CONFIG_FILE = "dt.cfg"
 
-    def __init__(self, config_path: str=None):
+    def __init__(self, config_path: str = None):
         config = configparser.ConfigParser()
-        config.read([config_path or '', Config.CONFIG_FILE, os.path.expanduser(f'~/.{Config.CONFIG_FILE}')])
-        self._auth = OAuth1(config.get('Discogs', 'consumer_key'),
-                           config.get('Discogs', 'consumer_secret'),
-                           config.get('Discogs', 'access_token_here'),
-                           config.get('Discogs', 'access_secret_here'))
-        self._user_name = config.get('Discogs', 'user_name')
+        config.read(
+            [
+                config_path or "",
+                Config.CONFIG_FILE,
+                os.path.expanduser(f"~/.{Config.CONFIG_FILE}"),
+            ]
+        )
+        self._auth = OAuth1(
+            config.get("Discogs", "consumer_key"),
+            config.get("Discogs", "consumer_secret"),
+            config.get("Discogs", "access_token_here"),
+            config.get("Discogs", "access_secret_here"),
+        )
+        self._user_name = config.get("Discogs", "user_name")
 
     @property
     def auth(self):
@@ -48,7 +56,7 @@ class Cache:
     REDIS_DB = 0
 
     def __init__(self):
-        self._cache = Redis(host='localhost', port=6379, db=Cache.REDIS_DB)
+        self._cache = Redis(host="localhost", port=6379, db=Cache.REDIS_DB)
 
     def __getitem__(self, key: str) -> str:
         return self._cache.get(key)
@@ -65,10 +73,11 @@ class API(object):
     A very light wrapper around the Discogs Databse API
     https://www.discogs.com/developers#page:home
     """
-    base_url = 'https://api.discogs.com'
+
+    base_url = "https://api.discogs.com"
     max_per_minute = 59
 
-    def __init__(self, config: Config=None, currency: str = 'EUR'):
+    def __init__(self, config: Config = None, currency: str = "EUR"):
         """
         :param cached: if True, uses the local API.redis_db as cache.
         :param config_path: The path of the .ini config file. Takes "dt.cfg" or "~/.dt.cfg" if not provided
@@ -90,23 +99,23 @@ class API(object):
             config = Config()
 
         self.user_name = config.user_name
-        self.user_agent = f'discogs_track/{__version__}'
+        self.user_agent = f"discogs_track/{__version__}"
 
         self.session = Session()
         self.session.auth = config.auth
-        self.session.headers.update({'User-Agent': self.user_agent})
+        self.session.headers.update({"User-Agent": self.user_agent})
 
-    def get_artist(self, artist_id: int, from_cache: bool=False) -> dict:
+    def get_artist(self, artist_id: int, from_cache: bool = False) -> dict:
         """
         https://www.discogs.com/developers#page:database,header:database-artist-get
         :param artist_id: the Discogs artist id
         :param from_cache: Set to True: takes artist information form the cache (default: False)
         :return: a dictionary containing the Discogs artist details
         """
-        obj = self.uncache_or_get(f'/artists/{artist_id}', from_cache=from_cache)
+        obj = self.uncache_or_get(f"/artists/{artist_id}", from_cache=from_cache)
         return obj
 
-    def get_releases(self, artist_id: int, from_cache: bool=True) -> List[dict]:
+    def get_releases(self, artist_id: int, from_cache: bool = True) -> List[dict]:
         """
         https://www.discogs.com/developers#page:database,header:database-artist-releases-get
         :param artist_id: the Discogs artist id
@@ -115,32 +124,42 @@ class API(object):
         pages = []
         while True:
             expected_page_number = len(pages) + 1
-            obj = self.get_artist_releases_page(artist_id, expected_page_number, from_cache=from_cache)
+            obj = self.get_artist_releases_page(
+                artist_id, expected_page_number, from_cache=from_cache
+            )
             pages.append(obj)
-            if obj['pagination']['pages'] == expected_page_number:
+            if obj["pagination"]["pages"] == expected_page_number:
                 break
         return pages
 
-    def get_artist_releases_page(self, artist_id, expected_page_number, from_cache) -> dict:
-        return self.uncache_or_get(f'/artists/{artist_id}/releases?per_page=500&page={expected_page_number}',
-                                   from_cache=from_cache)
+    def get_artist_releases_page(
+        self, artist_id, expected_page_number, from_cache
+    ) -> dict:
+        return self.uncache_or_get(
+            f"/artists/{artist_id}/releases?per_page=500&page={expected_page_number}",
+            from_cache=from_cache,
+        )
 
-    def get_release(self, release_id: int, from_cache: bool=True) -> dict:
+    def get_release(self, release_id: int, from_cache: bool = True) -> dict:
         """
         https://www.discogs.com/developers#page:database,header:database-release-get
         :param release_id: the Discogs record release id
         :return: a dictionary containing the details of the release
         """
-        obj = self.uncache_or_get(f'/releases/{release_id}?{self.currency}', from_cache=from_cache)
+        obj = self.uncache_or_get(
+            f"/releases/{release_id}?{self.currency}", from_cache=from_cache
+        )
         return obj
 
-    def get_stats(self, release_id: int, from_cache: bool=True) -> dict:
+    def get_stats(self, release_id: int, from_cache: bool = True) -> dict:
         """
         https://www.discogs.com/developers#page:database,header:database-release-stats
         :param release_id: the Discogs record release id
         :return: a dictionary containing the details of the release
         """
-        obj = self.uncache_or_get(f'/releases/{release_id}/stats', from_cache=from_cache)
+        obj = self.uncache_or_get(
+            f"/releases/{release_id}/stats", from_cache=from_cache
+        )
         return obj
 
     def get_master_releases(self, master_id: int, from_cache=True) -> List[dict]:
@@ -152,18 +171,24 @@ class API(object):
         pages = []
         while True:
             expected_page_number = len(pages) + 1
-            obj = self.get_master_releases_page(master_id, expected_page_number, from_cache=from_cache)
+            obj = self.get_master_releases_page(
+                master_id, expected_page_number, from_cache=from_cache
+            )
             pages.append(obj)
-            if obj['pagination']['pages'] == expected_page_number:
+            if obj["pagination"]["pages"] == expected_page_number:
                 break
         return pages
 
     def get_master_releases_page(self, master_id, pages_number, from_cache):
-        obj = self.uncache_or_get(f'/masters/{master_id}/versions?per_page=500&page={pages_number + 1}',
-                                  from_cache=from_cache)
+        obj = self.uncache_or_get(
+            f"/masters/{master_id}/versions?per_page=500&page={pages_number + 1}",
+            from_cache=from_cache,
+        )
         return obj
 
-    def get_collection_item(self, release_id: int, from_cache: bool=True) -> List[dict]:
+    def get_collection_item(
+        self, release_id: int, from_cache: bool = True
+    ) -> List[dict]:
         """
         https://www.discogs.com/developers/#page:user-collection,header:user-collection-collection-items-by-release
         :param release_id: the Discogs record release id
@@ -172,23 +197,26 @@ class API(object):
         pages = []
         while True:
             expected_page_number = len(pages) + 1
-            obj = self.get_collection_item_page(release_id, expected_page_number, from_cache=from_cache)
+            obj = self.get_collection_item_page(
+                release_id, expected_page_number, from_cache=from_cache
+            )
             pages.append(obj)
-            if obj['pagination']['pages'] == expected_page_number:
+            if obj["pagination"]["pages"] == expected_page_number:
                 break
         return pages
 
     def get_collection_item_page(self, release_id, expected_page_number, from_cache):
         obj = self.uncache_or_get(
-            f'/users/{self.user_name}/collection/releases/{release_id}?per_page=500&page={expected_page_number}',
-            from_cache=from_cache)
+            f"/users/{self.user_name}/collection/releases/{release_id}?per_page=500&page={expected_page_number}",
+            from_cache=from_cache,
+        )
         return obj
 
-    def uncache_or_get(self, query: str, from_cache: bool=True) -> dict:
-        url = f'{API.base_url}{query}'
+    def uncache_or_get(self, query: str, from_cache: bool = True) -> dict:
+        url = f"{API.base_url}{query}"
         cached = url in self.cache and from_cache
         if cached:
-            logger.debug(f'{url} (from cache)')
+            logger.debug(f"{url} (from cache)")
             text = self.cache[url]
         else:
             text = self.get(url)
@@ -201,7 +229,7 @@ class API(object):
     @staticmethod
     def loads_or_fail(text):
         obj = loads(text)
-        if obj == {'message': 'We are making requests too quickly.'}:
+        if obj == {"message": "We are making requests too quickly."}:
             raise TooQuicklyRequests()
         return obj
 
@@ -215,12 +243,13 @@ class API(object):
     def sleep_if_needed(resp: Response):
         rate_limit_remaining = int(resp.headers["X-Discogs-Ratelimit-Remaining"])
         request: PreparedRequest = resp.request
-        logger.debug(f'{request.url} (remaining rate limit: {rate_limit_remaining}/minute)')
+        logger.debug(
+            f"{request.url} (remaining rate limit: {rate_limit_remaining}/minute)"
+        )
         if rate_limit_remaining < 2:
-            logger.warning('Wait 90s')
+            logger.warning("Wait 90s")
             sleep(90)
         elif rate_limit_remaining < 6:
             sleep(5)
         elif rate_limit_remaining < 10:
             sleep(2)
-

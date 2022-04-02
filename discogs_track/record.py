@@ -20,6 +20,7 @@ class Record:
     - track_artist_ids: List of Discogs ids of all tracks contributing artists
     - tracks: dict of Track objects lists for a specific artist in the record
     """
+
     raw: dict
     version_raw: dict
     id: int
@@ -37,15 +38,17 @@ class Record:
     missing_tracks_ratio: dict
     in_collection: bool
 
-    def __init__(self,
-                 record_id: int,
-                 artist: "Artist"=None,
-                 with_artists: Dict[int, "Artist"] = None,
-                 from_cache: bool = True,
-                 api: API = None,
-                 version_raw_data: dict=None):
+    def __init__(
+        self,
+        record_id: int,
+        artist: "Artist" = None,
+        with_artists: Dict[int, "Artist"] = None,
+        from_cache: bool = True,
+        api: API = None,
+        version_raw_data: dict = None,
+    ):
 
-        assert(artist is not None)
+        assert artist is not None
 
         self.id = record_id
         self.artist = artist
@@ -62,12 +65,16 @@ class Record:
         self.raw = release_details
         self.title = release_details["title"]
         self.url = release_details.get("uri")
-        self.year = release_details.get("year", release_details.get("released", "Unknown"))
+        self.year = release_details.get(
+            "year", release_details.get("released", "Unknown")
+        )
 
         if version_raw_data:
             self.version_raw = version_raw_data
         elif "master_id" in release_details:
-            master = api.get_master_releases(master_id=release_details["master_id"], from_cache=from_cache)
+            master = api.get_master_releases(
+                master_id=release_details["master_id"], from_cache=from_cache
+            )
             for page in master:
                 for version in page["versions"]:
                     if version["id"] == self.id:
@@ -79,10 +86,14 @@ class Record:
         self.__init_in_collection(api, release_details)
 
         self.track_artist_ids = set()
-        self.num_for_sale = None if from_cache else release_details.get("num_for_sale", 0)
+        self.num_for_sale = (
+            None if from_cache else release_details.get("num_for_sale", 0)
+        )
 
         self.__init_format()
-        self.is_digital = "AIFF" in self.format or "FLAC" in self.format or "MP3" in self.format
+        self.is_digital = (
+            "AIFF" in self.format or "FLAC" in self.format or "MP3" in self.format
+        )
 
         self.__init_tracks()
 
@@ -107,11 +118,13 @@ class Record:
         if "format" in self.raw:
             self.format = self.raw["format"]
         else:
-            self.format = ', '.join(sorted(f["name"] for f in self.raw["formats"]))
-            format_descriptions = ', '.join(', '.join(sorted(f.get("descriptions", [])))
-                                            for f in self.raw["formats"])
+            self.format = ", ".join(sorted(f["name"] for f in self.raw["formats"]))
+            format_descriptions = ", ".join(
+                ", ".join(sorted(f.get("descriptions", [])))
+                for f in self.raw["formats"]
+            )
             if format_descriptions:
-                self.format = f'{self.format}, {format_descriptions}'
+                self.format = f"{self.format}, {format_descriptions}"
 
     def __init_tracks(self):
         """Create the record related Track objects and registers them.
@@ -123,16 +136,27 @@ class Record:
             if track_dict["type_"] != "track":
                 continue
             self.track_artist_ids.update(
-                {artist["id"]
-                 for artist in track_dict.get("artists", self.raw.get("artists", []))}
+                {
+                    artist["id"]
+                    for artist in track_dict.get("artists", self.raw.get("artists", []))
+                }
             )
-            track_artist_ids = {artist["id"] for artist in track_dict.get("artists", self.raw.get("artists", []))}
+            track_artist_ids = {
+                artist["id"]
+                for artist in track_dict.get("artists", self.raw.get("artists", []))
+            }
             if self.with_artists:
                 track_artist_ids = track_artist_ids.intersection(self.with_artists)
             for track_artist_id in track_artist_ids:
-                track_artist = self.with_artists[track_artist_id] if self.with_artists else self.artist
+                track_artist = (
+                    self.with_artists[track_artist_id]
+                    if self.with_artists
+                    else self.artist
+                )
                 track = Track.get_or_create(track_dict, self, artist=track_artist)
-                self.tracks.setdefault(track_artist.full_id if track_artist else None, []).append(track)
+                self.tracks.setdefault(
+                    track_artist.full_id if track_artist else None, []
+                ).append(track)
 
     def set_missing_tracks_ratio(self, artist_ids: str):
         # _missing_tracks are set by the Artist get_missing_tracks() method. This is weird.
@@ -148,11 +172,13 @@ class Record:
         return hash((self.id,))
 
     def __repr__(self):
-        return f'{self.__class__.__name__}' \
-               f'({self.artist.name}, ' \
-               f'{self.title}, ' \
-               f'{self.format}, ' \
-               f'{self.year}, ' \
-               f'{int(next(iter(self.missing_tracks_ratio.values()), 0)*100)}%, ' \
-               f'{self.num_for_sale}, ' \
-               f'{self.url} )'
+        return (
+            f"{self.__class__.__name__}"
+            f"({self.artist.name}, "
+            f"{self.title}, "
+            f"{self.format}, "
+            f"{self.year}, "
+            f"{int(next(iter(self.missing_tracks_ratio.values()), 0)*100)}%, "
+            f"{self.num_for_sale}, "
+            f"{self.url} )"
+        )

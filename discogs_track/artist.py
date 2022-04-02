@@ -28,6 +28,7 @@ class Artist:
 
     The class is mostly useful for its discover_missing_tracks() and check_for_completing_records() methods
     """
+
     raw: dict
     id: int
     all: Dict[int, "Artist"]
@@ -62,7 +63,14 @@ class Artist:
         else:
             return Artist(artist_id, api, alias)
 
-    def __init__(self, artist_id: Optional[int], api: Optional[API] = None, alias=None, from_cache=True, verbosity: int=0):
+    def __init__(
+        self,
+        artist_id: Optional[int],
+        api: Optional[API] = None,
+        alias=None,
+        from_cache=True,
+        verbosity: int = 0,
+    ):
         """
         The constructor is typically called without alias.
         It then calls itself recursively to consume all aliases.
@@ -73,7 +81,7 @@ class Artist:
         """
 
         self.id = artist_id
-        self.all, self.full_id = {}, ''  # will be set by self.__init_aliases
+        self.all, self.full_id = {}, ""  # will be set by self.__init_aliases
         self.api = api
         self.aliases = []
         self.records = {}
@@ -89,7 +97,9 @@ class Artist:
         self.from_cache = from_cache
         self.name = self.raw["name"]
         self.__init_aliases(alias, api)
-        self.records = self.get_records(artist_id, api=api, from_cache=from_cache, verbosity=verbosity)
+        self.records = self.get_records(
+            artist_id, api=api, from_cache=from_cache, verbosity=verbosity
+        )
         if not alias:
             self.missing_tracks.update(self.discover_missing_tracks())
             for alias in self.aliases:
@@ -99,7 +109,10 @@ class Artist:
         if not alias:
             # The entry artist is getting all aliases in its self.aliases
             if "aliases" in self.raw:
-                self.aliases = [Artist.from_artist_id(artist_id=a.id, api=api, alias=self) for a in self.aliases]
+                self.aliases = [
+                    Artist.from_artist_id(artist_id=a.id, api=api, alias=self)
+                    for a in self.aliases
+                ]
             self.__init_all()
         else:
             # The alias artists have only one alias: the entry artist
@@ -122,13 +135,21 @@ class Artist:
         for id_, record in self.records.items():
             if isinstance(record, Record):
                 record.set_missing_tracks_ratio(self.full_id)
-                self.completing_records.setdefault(len(record.missing_tracks), {})[id_] = record
+                self.completing_records.setdefault(len(record.missing_tracks), {})[
+                    id_
+                ] = record
 
-    def get_records(self, artist_id: int, api: API, from_cache: bool=None, verbosity: int=0) -> dict:
+    def get_records(
+        self, artist_id: int, api: API, from_cache: bool = None, verbosity: int = 0
+    ) -> dict:
         records = {}
         releases_pages = api.get_releases(artist_id, from_cache=from_cache)
-        with tqdm(desc='releases') as pbar:
-            for release in [release for release_page in releases_pages for release in release_page["releases"]]:
+        with tqdm(desc="releases") as pbar:
+            for release in [
+                release
+                for release_page in releases_pages
+                for release in release_page["releases"]
+            ]:
                 if release["artist"] == self.name:
                     artist = self
                 elif release["artist"] == "Various":
@@ -137,25 +158,31 @@ class Artist:
                     continue
 
                 if release["type"] == "master":
-                    master_versions_pages = api.get_master_releases(master_id=release["id"], from_cache=from_cache)
+                    master_versions_pages = api.get_master_releases(
+                        master_id=release["id"], from_cache=from_cache
+                    )
                     for page in master_versions_pages:
                         for version in page["versions"]:
-                            record = Record(record_id=version["id"],
-                                            artist=artist,
-                                            with_artists=self.artists,
-                                            version_raw_data=version,
-                                            api=api,
-                                            from_cache=from_cache)
+                            record = Record(
+                                record_id=version["id"],
+                                artist=artist,
+                                with_artists=self.artists,
+                                version_raw_data=version,
+                                api=api,
+                                from_cache=from_cache,
+                            )
                             pbar.update(1)
                             if not record.is_digital:
                                 records[record.id] = record
                 else:
-                    assert(release["type"] == "release")
-                    record = Record(record_id=release["id"],
-                                    artist=artist,
-                                    with_artists=self.artists,
-                                    api=api,
-                                    from_cache=from_cache)
+                    assert release["type"] == "release"
+                    record = Record(
+                        record_id=release["id"],
+                        artist=artist,
+                        with_artists=self.artists,
+                        api=api,
+                        from_cache=from_cache,
+                    )
                     pbar.update(1)
                     if not record.is_digital:
                         records[record.id] = record
@@ -170,10 +197,12 @@ class Artist:
         _missing = {}
         for title, title_data in tracks.items():
             for duration, track in title_data.items():
-                if not track.in_collection and not (not track.duration and track.alternatives):
+                if not track.in_collection and not (
+                    not track.duration and track.alternatives
+                ):
                     _missing.setdefault(title, {})[duration] = track
                     for record_id, record in track.records.items():
-                        assert (not record.in_collection)
+                        assert not record.in_collection
                         if track not in record.missing_tracks:
                             record.missing_tracks.append(track)
         return _missing
@@ -188,46 +217,54 @@ class Artist:
 
         :return: A list of tuples
         """
-        tracks_table = [('', 'track', 'm:s', 'alt', 'artist', 'record', '', 'format', 'year', 'uri')]
+        tracks_table = [
+            ("", "track", "m:s", "alt", "artist", "record", "", "format", "year", "uri")
+        ]
         tracks = self.get_tracks()
         for track_title in sorted(tracks):
             track_data = tracks[track_title]
             for duration in sorted(track_data)[::-1]:
                 track = track_data[duration]
                 for record_id, record in track.records.items():
-                    tracks_table.append((
-                        '' if not track.in_collection else 'X',
-                        track_title, duration,
-                        len(track.alternatives),
-                        record.artist.name,
-                        record.title,
-                        '' if not record.in_collection else 'X',
-                        record.format,
-                        record.year,
-                        record.url))
+                    tracks_table.append(
+                        (
+                            "" if not track.in_collection else "X",
+                            track_title,
+                            duration,
+                            len(track.alternatives),
+                            record.artist.name,
+                            record.title,
+                            "" if not record.in_collection else "X",
+                            record.format,
+                            record.year,
+                            record.url,
+                        )
+                    )
         return tracks_table
 
-    def completing_records_report(self, min_tracks_number: int=0, for_sale: bool=False):
+    def completing_records_report(
+        self, min_tracks_number: int = 0, for_sale: bool = False
+    ):
         """
         Returns a table of records containing tracks missing in the collection
         :param min_tracks_number: minimum number of missing tracks (default: 0)
         :param for_sale: To only get Records for sale, set this flag to True
         :return: An array of arrays. The first line is the header (nb, record)
         """
-        records_table = [['nb', 'record']]
+        records_table = [["nb", "record"]]
         for missing_nb in sorted(self.completing_records):
-            if missing_nb<=min_tracks_number:
+            if missing_nb <= min_tracks_number:
                 continue
             with_this_nb = self.completing_records[missing_nb]
             for release_id, record in with_this_nb.items():
                 if for_sale and not record.num_for_sale:
                     continue
                 records_table.append([missing_nb, record])
-                missing_nb = ''
+                missing_nb = ""
         return records_table
 
     def __repr__(self):
-        return f'Artist({self.name})'
+        return f"Artist({self.name})"
 
 
 class Various:
