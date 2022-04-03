@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Dict, Optional, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import Dict, Optional, ClassVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .record import Record  # type: ignore
@@ -17,9 +17,8 @@ class Track:
     in_collection: bool
     alternatives: set  # "alternative_tracks" maybe? or "other_versions"?
 
-    _tracks: Dict[str, Dict[str, Dict[str, "Track"]]] = field(
-        default_factory=dict
-    )  # Indexed by artist_ids csv, then title, then duration
+    _tracks: ClassVar[Dict[str, Dict[str, Dict[str, "Track"]]]] = {}
+    #  _tracks is indexed by artist_ids csv, then title, then duration
 
     @staticmethod
     def get_or_create(track_dict: dict, record: Record, artist: Artist = None):

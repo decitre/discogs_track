@@ -4,8 +4,8 @@ from .api import API  # type: ignore
 from .record import Record  # type: ignore
 from .track import Track  # type: ignore
 
-from typing import Optional, Dict, Union
-from dataclasses import dataclass, field
+from typing import Optional, Dict, Union, ClassVar
+from dataclasses import dataclass
 
 
 @dataclass
@@ -47,7 +47,7 @@ class Artist:
     missing_tracks: dict
     completing_records: Dict[int, Dict[int, Record]]
 
-    ARTISTS: Dict[Union[int, None], "Artist"] = field(default_factory=dict)
+    ARTISTS: ClassVar[Dict[Union[int, None], "Artist"]] = {}
 
     @classmethod
     def from_artist_id(cls, artist_id: int, api: API, alias=None) -> object:
