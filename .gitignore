@@ -1,0 +1,10 @@
+.gitignore
+.idea
+.python-version  #  pyenv
+.tox
+.pre-commit-config.yaml
+Pipfile*
+*.egg-info
+discogs_track.iml
+dt.cfg
+tox.ini
