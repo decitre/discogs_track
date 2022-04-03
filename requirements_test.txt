@@ -14,3 +14,7 @@ tox-gh-actions
 pytest
 pytest-cov
 mypy
+
+wheel
+check-manifest
+twine

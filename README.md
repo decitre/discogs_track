@@ -1,4 +1,4 @@
-# missing track
+# discogs track
 
 A tool for completists and other pop music collectors.
 It is inspired by R.I.P the discogs.com [Tracks Beta project](https://www.discogs.com/track). 
@@ -7,46 +7,65 @@ It is inspired by R.I.P the discogs.com [Tracks Beta project](https://www.discog
 
 This tool is not yet in pypi.org.
 
-    pip -v install https://github.com/decitre/discogs_track.git
+```shell
+$ pip -v install https://github.com/decitre/discogs_track.git
+```
+
+To install the dev/test tools and contribute to the project, do in your virtualenv:
+
+```shell
+$ pip install -e ".[dev]"
+```
+
 
 To start Redis service on Macos:
 
-    brew services start redis
+```shell
+$ brew services start redis
+```
 
 [Shell completion](https://click.palletsprojects.com/en/latest/shell-completion) on zsh:
 
-    _DISCOGS_TRACK_COMPLETE=zsh_source discogs_track > ~/.discogs_track-complete.zsh
-    echo ". ~/.discogs_track-complete.zsh" >> ~/.zshrc
+```shell
+_DISCOGS_TRACK_COMPLETE=zsh_source discogs_track > ~/.discogs_track-complete.zsh
+echo ". ~/.discogs_track-complete.zsh" >> ~/.zshrc
+```
 
 ## Usage
 
-    discogs_track --help
-    Usage: discogs_track [OPTIONS] COMMAND [ARGS]...
-    
-    Options:
-        --version             Show the version and exit.
-        -v, --verbose         [x>=0]
-        --cache / --no-cache
-        --help                Show this message and exit.
-    
-    Commands:
-        artist
+```help
+discogs_track --help
+Usage: discogs_track [OPTIONS] COMMAND [ARGS]...
+
+Options:
+    --version             Show the version and exit.
+    -v, --verbose         [x>=0]
+    --cache / --no-cache
+    --help                Show this message and exit.
+
+Commands:
+    artist
+```
 
 Examples:
-    
-    discogs_track artist -i 3281311 show-tracks
-    discogs_track artist -i 3281311 show-completing
-    discogs_track --no-cache artist -i 3281311 show-completing --for-sale
-    discogs_track artist -i 3281311 release -i 20846845 show
+
+```shell
+$ discogs_track artist -i 3281311 show-tracks
+$ discogs_track artist -i 3281311 show-completing
+$ discogs_track --no-cache artist -i 3281311 show-completing --for-sale
+$ discogs_track artist -i 3281311 release -i 20846845 show
+```
 
 The tool expects in `~/.dt.cfg` a INI config file containing a Discogs user credentials:
 
-    [Discogs]
-    user_name = ...
-    consumer_key = ...
-    consumer_secret = ...
-    access_token_here = ...
-    access_secret_here = ...    
+```ini
+[Discogs]
+user_name = ...
+consumer_key = ...
+consumer_secret = ...
+access_token_here = ...
+access_secret_here = ...    
+```
 
 ## SDK
 
