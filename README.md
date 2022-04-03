@@ -11,12 +11,6 @@ This tool is not yet in pypi.org.
 $ pip -v install https://github.com/decitre/discogs_track.git
 ```
 
-To install the dev/test tools and contribute to the project, do in your virtualenv:
-
-```shell
-$ pip install -e ".[dev]"
-```
-
 
 To start Redis service on Macos:
 
@@ -85,6 +79,22 @@ It calculates for a specified artist, a per record `missing_tracks_ratio`:
 The number of tracks none of the records of the user's collection contain, over the number of tracks in the record.
 A record with a 0% score is either already in the collection as one of its various releases, or all its tracks are contained by a set of other records in the collection.
 A record with a 100% score only contains tracks not present in any other record of the user's collection.
+
+## To contribute
+
+To install the dev/test tools and contribute to the project, do in your virtualenv:
+
+```shell
+$ pip install -e ".[dev]"
+```
+
+To upload a change:
+
+```shell
+$ python setup.py sdist bdist_wheel
+$ twine upload dist/*
+```
+
 
 
 <!--
