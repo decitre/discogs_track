@@ -97,9 +97,7 @@ $ twine upload dist/*
 
 
 
-<!--
-## References
+## Reference & Links
 
-3. https://medium.com/@petehouston/install-and-config-redis-on-mac-os-x-via-homebrew-eb8df9a4f298
-
--->
+1. [pypi page](https://pypi.org/project/discogs-track/)
+2. [Contributing]()
